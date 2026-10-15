@@ -1202,7 +1202,7 @@ class _SettingsPageState extends State<SettingsPage>
       repetitive = <String>{},
       modes = {'notifications': 'all', 'starred': 'all', 'details': 'all'},
       silence = true,
-      darkMode = false,
+      darkMode = true,
       q = '',
       access = false,
       appNotifs = false,
