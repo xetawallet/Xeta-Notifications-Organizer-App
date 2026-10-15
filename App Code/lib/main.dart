@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'crypto_donation_page.dart';
 
-final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.light);
+final ValueNotifier<ThemeMode> appThemeMode = ValueNotifier(ThemeMode.dark);
 
 void main() => runApp(const App());
 
@@ -297,8 +297,30 @@ class _OnboardingState extends State<Onboarding> with WidgetsBindingObserver {
     await refresh();
   }
 
+  Future<void> toggleTheme() async {
+    final dark = appThemeMode.value != ThemeMode.dark;
+    appThemeMode.value = dark ? ThemeMode.dark : ThemeMode.light;
+    await Native.setDarkMode(dark);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Getting started'),
+      actions: [
+        IconButton(
+          tooltip: appThemeMode.value == ThemeMode.dark
+              ? 'Switch to light theme'
+              : 'Switch to dark theme',
+          onPressed: toggleTheme,
+          icon: Icon(
+            appThemeMode.value == ThemeMode.dark
+                ? Icons.light_mode_outlined
+                : Icons.dark_mode_outlined,
+          ),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: Column(
         children: [
@@ -809,9 +831,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         ),
       ),
       subtitle: Text(
-        view == MainView.details
-            ? '${n.app}  -  ${n.actionKind}${n.link.isNotEmpty ? '  -  ${n.link}' : ''}'
-            : n.body,
+        view == MainView.details ? '${n.app}  ·  ${n.body}' : n.body,
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
@@ -839,6 +859,27 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             },
     ),
   );
+  String _actionLabel(String kind) => switch (kind) {
+    'pendingIntent' => 'Open Action',
+    'link' => 'Web link',
+    'openApp' => 'Open app',
+    _ => 'Unavailable',
+  };
+
+  Future<void> openAction(N n) async {
+    final opened = await Native.open(n.id);
+    if (!mounted) return;
+    if (opened) {
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This notification action is no longer available'),
+        ),
+      );
+    }
+  }
+
   Future<void> showMeta(N n) async => showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -855,7 +896,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               ('title', n.title),
               ('body', n.body),
               ('package', n.pkg),
-              ('actionKind', n.actionKind),
+              ('tapAction', _actionLabel(n.actionKind)),
               ('link', n.link),
               ('creatorPackage', n.creatorPackage),
               ('channelId', n.channelId),
@@ -873,7 +914,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 ('title', n.title),
                 ('body', n.body),
                 ('package', n.pkg),
-                ('actionKind', n.actionKind),
+                ('tapAction', _actionLabel(n.actionKind)),
                 ('link', n.link),
                 ('creatorPackage', n.creatorPackage),
                 ('channelId', n.channelId),
@@ -909,7 +950,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           child: const Text('Close'),
         ),
         FilledButton(
-          onPressed: () => Native.open(n.id),
+          onPressed: () => openAction(n),
           child: const Text('Open action'),
         ),
       ],

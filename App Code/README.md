@@ -1,6 +1,6 @@
 # Xeta Notifications Organizer
 
-Local Android notification organizer, v1.0.10. Notification access stores captured notifications in the app-private SQLite database at `databases/notification_archive.db`. On upgrade, existing date-based JSON archives are imported automatically and deleted only after the database transaction succeeds.
+Local Android notification organizer, v1.1.1. Notification access stores captured notifications in the app-private SQLite database at `databases/notification_archive.db`. On upgrade, existing date-based JSON archives are imported automatically and deleted only after the database transaction succeeds.
 
 On first launch, review and accept the notification-data disclosure. Then complete onboarding and enable notification access. Keep important apps selected if their notifications should remain in the phone shade. Non-important apps are archived and cleared when "Silence non-important apps" is on. Repetitive apps are archived as read by default.
 

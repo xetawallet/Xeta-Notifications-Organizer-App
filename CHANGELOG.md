@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Show notification text in Details instead of the internal PendingIntent marker.
+- Keep a bounded in-memory cache of original notification actions after shade dismissal and make the Open Action result visible.
+- Use dark theme by default and allow theme changes throughout onboarding.
+
 ## 1.1.0
 
 - Added selection and permanent deletion by day, app, or individual notification.

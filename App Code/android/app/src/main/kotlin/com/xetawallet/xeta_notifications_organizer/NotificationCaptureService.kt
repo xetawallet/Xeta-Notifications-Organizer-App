@@ -25,7 +25,7 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        active.remove(notificationId(sbn))
+        // Keep the original action available after its shade row is removed.
     }
 
     private fun capture(sbn: StatusBarNotification) {
@@ -46,7 +46,7 @@ class NotificationCaptureService : NotificationListenerService() {
         // well. Key by the captured notification instance rather than Android's
         // reusable package/tag/id key so a late removal cannot evict a newer
         // notification's action.
-        n.contentIntent?.let { active[id] = it } ?: active.remove(id)
+        n.contentIntent?.let { rememberAction(id, it) } ?: active.remove(id)
         val link = NotificationStore.linkFrom(title, body)
         val repetitive = sbn.packageName in NotificationStore.repetitiveApps(this)
         val record = JSONObject(mapOf(
@@ -92,8 +92,19 @@ class NotificationCaptureService : NotificationListenerService() {
     companion object {
         const val ACTION_CHANGED = "com.xetawallet.xeta_notifications_organizer.NOTIFICATIONS_CHANGED"
         private val active = ConcurrentHashMap<String, PendingIntent>()
+        private val activeOrder = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        private const val MAX_CACHED_ACTIONS = 2000
         private val storageExecutor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "notification-archive-writer").apply { isDaemon = true }
+        }
+
+        private fun rememberAction(id: String, pendingIntent: PendingIntent) {
+            active[id] = pendingIntent
+            activeOrder.add(id)
+            while (active.size > MAX_CACHED_ACTIONS) {
+                val oldest = activeOrder.poll() ?: break
+                active.remove(oldest)
+            }
         }
 
         fun refresh(ctx: Context) {

@@ -1,4 +1,4 @@
-# Xeta Notifications Organizer v1.1.0
+# Xeta Notifications Organizer v1.1.1
 
 An Android notification organizer built with Flutter. Notification records are kept in an app-private SQLite database on the device. No notification archive is sent to a server.
 

@@ -187,7 +187,7 @@ object NotificationStore {
     fun setPrivacyConsent(ctx: Context, value: Boolean): Boolean = ctx.getSharedPreferences(PREF, 0).edit().putBoolean(PRIVACY_CONSENT, value).commit()
     fun restrictedDone(ctx: Context): Boolean = ctx.getSharedPreferences(PREF, 0).getBoolean(RESTRICTED_DONE, false)
     fun setRestrictedDone(ctx: Context, value: Boolean): Boolean = ctx.getSharedPreferences(PREF, 0).edit().putBoolean(RESTRICTED_DONE, value).commit()
-    fun darkMode(ctx: Context): Boolean = ctx.getSharedPreferences(PREF, 0).getBoolean(DARK_MODE, false)
+    fun darkMode(ctx: Context): Boolean = ctx.getSharedPreferences(PREF, 0).getBoolean(DARK_MODE, true)
     fun setDarkMode(ctx: Context, value: Boolean): Boolean = ctx.getSharedPreferences(PREF, 0).edit().putBoolean(DARK_MODE, value).commit()
     fun viewMode(ctx: Context, key: String): String = ctx.getSharedPreferences(PREF, 0).getString(VIEW_PREFIX + key, "all") ?: "all"
     fun setViewMode(ctx: Context, key: String, value: String): Boolean = ctx.getSharedPreferences(PREF, 0).edit().putString(VIEW_PREFIX + key, value).commit()

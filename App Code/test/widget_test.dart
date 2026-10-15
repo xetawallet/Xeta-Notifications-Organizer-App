@@ -9,13 +9,19 @@ void main() {
   var readManyCalls = 0;
   String? deleteType;
   List<String> deleteValues = [];
+  String? openedNotificationId;
   var hasPrivacyConsent = true;
+  var onboardingComplete = true;
+  var darkThemeEnabled = true;
   List<Map<String, Object?>> storedNotifications = [];
   setUp(() {
     readManyCalls = 0;
     deleteType = null;
     deleteValues = [];
+    openedNotificationId = null;
     hasPrivacyConsent = true;
+    onboardingComplete = true;
+    darkThemeEnabled = true;
     storedNotifications = [
       {
         'id': 'n-1',
@@ -34,7 +40,20 @@ void main() {
             return storedNotifications;
           }
           if (call.method == 'listenerEnabled') return false;
-          if (call.method == 'onboarded') return true;
+          if (call.method == 'onboarded') return onboardingComplete;
+          if (call.method == 'setOnboarded') {
+            onboardingComplete = call.arguments['value'] as bool;
+            return true;
+          }
+          if (call.method == 'darkMode') return darkThemeEnabled;
+          if (call.method == 'setDarkMode') {
+            darkThemeEnabled = call.arguments['value'] as bool;
+            return true;
+          }
+          if (call.method == 'openNotification') {
+            openedNotificationId = call.arguments['id'] as String;
+            return true;
+          }
           if (call.method == 'privacyConsent') return hasPrivacyConsent;
           if (call.method == 'setPrivacyConsent') {
             hasPrivacyConsent = call.arguments['value'] as bool;
@@ -96,6 +115,61 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.byIcon(Icons.calendar_month), findsOneWidget);
+  });
+
+  testWidgets('starts in dark theme by default', (tester) async {
+    await tester.pumpWidget(const App());
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+  });
+
+  testWidgets('can change theme during onboarding', (tester) async {
+    onboardingComplete = false;
+    await tester.pumpWidget(const App());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fast triage'), findsOneWidget);
+    await tester.tap(find.byTooltip('Switch to light theme'));
+    await tester.pumpAndSettle();
+    expect(darkThemeEnabled, isFalse);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
+
+    await tester.tap(find.byTooltip('Switch to dark theme'));
+    await tester.pumpAndSettle();
+    expect(darkThemeEnabled, isTrue);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+  });
+
+  testWidgets('details show notification text and open its action', (
+    tester,
+  ) async {
+    storedNotifications.single['actionKind'] = 'pendingIntent';
+    await tester.pumpWidget(const App());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sample app  ·  Sample body'), findsOneWidget);
+    expect(find.text('pendingIntent'), findsNothing);
+
+    await tester.tap(find.text('Sample title'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open Action'), findsOneWidget);
+    await tester.tap(find.text('Open action'));
+    await tester.pumpAndSettle();
+    expect(openedNotificationId, 'n-1');
+    expect(find.text('Close'), findsNothing);
   });
 
   testWidgets('selects notifications by app before deleting', (tester) async {
