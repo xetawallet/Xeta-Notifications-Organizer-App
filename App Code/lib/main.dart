@@ -477,7 +477,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.resumed) load();
+    if (s == AppLifecycleState.resumed && mounted) {
+      setState(() => view = MainView.notifications);
+      load();
+    }
   }
 
   String ymd(DateTime d) =>

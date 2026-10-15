@@ -9,11 +9,11 @@ import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONObject
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerConnected() {
+        connectedService = this
         // Rebuild the click-action cache after an app/process restart before
         // re-saving active notifications.  The stored copy keeps their read
         // state when this is just a listener reconnect.
@@ -28,6 +28,11 @@ class NotificationCaptureService : NotificationListenerService() {
         // Keep the original action available after its shade row is removed.
     }
 
+    override fun onListenerDisconnected() {
+        if (connectedService === this) connectedService = null
+        super.onListenerDisconnected()
+    }
+
     private fun capture(sbn: StatusBarNotification) {
         if (sbn.packageName == packageName) return
         if (!NotificationStore.privacyConsent(this)) return
@@ -36,17 +41,18 @@ class NotificationCaptureService : NotificationListenerService() {
         // progress notifications often have no title/body, but still need to
         // be cleared when their app is not important.
         val silence = NotificationStore.shouldSilence(this, sbn.packageName)
+        val id = notificationId(sbn)
+        // Cache the Android-owned action before clearing a filtered notification.
+        n.contentIntent?.let { rememberAction(id, it) } ?: clearCachedAction(id)
         if (silence) cancelNotification(sbn.key)
 
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val body = (n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
         if (title.isBlank() && body.isBlank()) return
-        val id = notificationId(sbn)
         // Keep the current action hot in memory and save its system token as
         // well. Key by the captured notification instance rather than Android's
         // reusable package/tag/id key so a late removal cannot evict a newer
         // notification's action.
-        n.contentIntent?.let { rememberAction(id, it) } ?: active.remove(id)
         val link = NotificationStore.linkFrom(title, body)
         val repetitive = sbn.packageName in NotificationStore.repetitiveApps(this)
         val record = JSONObject(mapOf(
@@ -91,19 +97,34 @@ class NotificationCaptureService : NotificationListenerService() {
 
     companion object {
         const val ACTION_CHANGED = "com.xetawallet.xeta_notifications_organizer.NOTIFICATIONS_CHANGED"
-        private val active = ConcurrentHashMap<String, PendingIntent>()
-        private val activeOrder = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        private val active = LinkedHashMap<String, PendingIntent>(16, 0.75f, true)
+        @Volatile private var connectedService: NotificationCaptureService? = null
         private const val MAX_CACHED_ACTIONS = 2000
         private val storageExecutor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "notification-archive-writer").apply { isDaemon = true }
         }
 
         private fun rememberAction(id: String, pendingIntent: PendingIntent) {
-            active[id] = pendingIntent
-            activeOrder.add(id)
-            while (active.size > MAX_CACHED_ACTIONS) {
-                val oldest = activeOrder.poll() ?: break
-                active.remove(oldest)
+            synchronized(active) {
+                active[id] = pendingIntent
+                while (active.size > MAX_CACHED_ACTIONS) {
+                    val oldest = active.entries.iterator()
+                    if (!oldest.hasNext()) break
+                    oldest.next()
+                    oldest.remove()
+                }
+            }
+        }
+
+        private fun cachedAction(id: String): PendingIntent? = synchronized(active) { active[id] }
+
+        private fun clearCachedAction(id: String) {
+            synchronized(active) { active.remove(id) }
+        }
+
+        private fun removeCachedAction(id: String, expected: PendingIntent) {
+            synchronized(active) {
+                if (active[id] === expected) active.remove(id)
             }
         }
 
@@ -119,16 +140,26 @@ class NotificationCaptureService : NotificationListenerService() {
             }
         }
 
-    fun open(ctx: Context, id: String?): Boolean = try {
-            val pi = active[id]
-            if (pi != null) {
-                pi.send()
-                true
-            } else {
-                NotificationStore.openStored(ctx, id)
+        fun open(ctx: Context, id: String?): Boolean {
+            if (id.isNullOrBlank()) return false
+            val liveAction = try {
+                connectedService?.activeNotifications
+                    ?.firstOrNull { notificationId(it) == id }
+                    ?.notification?.contentIntent
+            } catch (_: Exception) {
+                null
             }
-        } catch (_: Exception) {
-            NotificationStore.openStored(ctx, id)
+            val action = liveAction ?: cachedAction(id)
+            if (action != null) {
+                try {
+                    action.send()
+                    synchronized(active) { active[id] = action }
+                    return true
+                } catch (_: Exception) {
+                    removeCachedAction(id, action)
+                }
+            }
+            return NotificationStore.openStored(ctx, id)
         }
 
         private fun notificationId(sbn: StatusBarNotification) = "${sbn.postTime}-${sbn.key}"

@@ -229,19 +229,20 @@ object NotificationStore {
     fun openStored(ctx: Context, id: String?): Boolean {
         return try {
             val o = find(ctx, id) ?: return false
-            pendingIntentFrom(o.optString("pendingIntent"))?.let {
-                try {
-                    it.send()
-                    return true
-                } catch (_: Exception) {
-                    // The originating app cancelled its token. Use the existing
-                    // URL fallback below in that case.
+            when (o.optString("actionKind")) {
+                "pendingIntent" -> {
+                    val action = pendingIntentFrom(o.optString("pendingIntent")) ?: return false
+                    action.send()
+                    true
                 }
+                "link" -> {
+                    val link = o.optString("link")
+                    if (link.isBlank()) return false
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    true
+                }
+                else -> false
             }
-            val link = o.optString("link")
-            if (link.isBlank()) return false
-            ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            true
         } catch (_: Exception) { false }
     }
 

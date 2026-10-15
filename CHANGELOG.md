@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2
+
+- Return to Notifications when the app resumes.
+- Resolve notification taps from Android's active notification actions so the original app action remains available after an app process restart.
+- Restrict archived URL fallback to notifications recorded as web links.
+
 ## 1.1.1
 
 - Show notification text in Details instead of the internal PendingIntent marker.
