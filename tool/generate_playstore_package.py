@@ -9,6 +9,7 @@ overridden so the script can be reused from another app's assets folder.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import shutil
 import textwrap
@@ -318,7 +319,9 @@ def build_website(
     website_build.mkdir(parents=True, exist_ok=True)
     image_refs, icon_ref = copy_site_images(source_files, icon_path, website_build)
     hero_image = f'<img src="{image_refs[0]}" alt="{html.escape(app_name)} app preview" class="hero-bg">' if image_refs else ""
-    icon_markup = f'<img src="{icon_ref}" alt="{html.escape(app_name)} icon" class="brand-icon">' if icon_ref else ""
+    versioned_icon_ref = f"{icon_ref}?v={hashlib.sha256(icon_path.read_bytes()).hexdigest()[:12]}" if icon_ref else ""
+    icon_markup = f'<img src="{versioned_icon_ref}" alt="{html.escape(app_name)} icon" class="brand-icon">' if versioned_icon_ref else ""
+    favicon_markup = f'<link rel="icon" type="image/png" href="{versioned_icon_ref}">' if versioned_icon_ref else ""
     gallery = "\n".join(
         f'<figure class="screen"><img src="{ref}" alt="{html.escape(app_name)} screenshot {idx}"></figure>'
         for idx, ref in enumerate(image_refs, start=1)
@@ -345,6 +348,7 @@ def build_website(
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(app_name)}</title>
   <meta name="description" content="{html.escape(tagline)}">
+  {favicon_markup}
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -366,7 +370,7 @@ def build_website(
   </nav>
 
   <header class="hero">
-    <img src="{hero_image}" alt="{html.escape(app_name)} app preview" class="hero-bg">
+    {hero_image}
     <div class="hero-shade"></div>
     <div class="container hero-content">
       <div class="hero-copy">
@@ -432,6 +436,7 @@ def build_website(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy Policy | {html.escape(app_name)}</title>
+  {favicon_markup}
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>

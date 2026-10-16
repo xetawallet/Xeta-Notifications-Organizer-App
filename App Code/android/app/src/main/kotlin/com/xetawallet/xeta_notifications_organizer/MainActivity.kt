@@ -85,6 +85,10 @@ class MainActivity : FlutterActivity() {
                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                     result.success(null)
                 }
+                "openSource" -> {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/xetawallet/Xeta-Notifications-Organizer-App")))
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

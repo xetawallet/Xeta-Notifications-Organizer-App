@@ -1,0 +1,6 @@
+[
+  {"title":"Organize notifications","description":"Review saved notifications by day, app, or individual message."},
+  {"title":"Reopen notification actions","description":"Use the original Android action when available, with an app-opening fallback for older archived notifications."},
+  {"title":"Private on-device archive","description":"Notification history stays in private app storage on your device."},
+  {"title":"Open source","description":"Every line of app code is open source and available on GitHub."}
+]

@@ -1,11 +1,11 @@
 {
-    "name": "xeta_notifications_organizer",
-    "short_name": "xeta_notifications_organizer",
+    "name": "Xeta Notifications Organizer",
+    "short_name": "Xeta Notifications",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Organize notifications and keep their history on your device.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

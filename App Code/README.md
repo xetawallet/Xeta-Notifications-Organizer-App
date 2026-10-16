@@ -1,19 +1,13 @@
-# Xeta Notifications Organizer
+# Xeta Notifications Organizer app source
 
-Local Android notification organizer, v1.1.1. Notification access stores captured notifications in the app-private SQLite database at `databases/notification_archive.db`. On upgrade, existing date-based JSON archives are imported automatically and deleted only after the database transaction succeeds.
+This directory contains the complete Flutter and Android app source for production v1.0.0, built from the tested v1.1.3 code. Every line of app code is open source under Apache 2.0.
 
-On first launch, review and accept the notification-data disclosure. Then complete onboarding and enable notification access. Keep important apps selected if their notifications should remain in the phone shade. Non-important apps are archived and cleared when "Silence non-important apps" is on. Repetitive apps are archived as read by default.
+Android version code: `1001003`.
 
-Saved notification records can be deleted from Settings. Collection stops when Notification access is disabled in Android settings.
+Source repository: https://github.com/xetawallet/Xeta-Notifications-Organizer-App
 
-Build:
+Build a debug APK with `flutter pub get` followed by `flutter build apk --debug`. Configure private release signing outside this repository before making a production build.
 
-```bash
-./release.sh
-```
+The static app website is in `assets/Website/build/`. Source phone captures and generated Play Store screenshots are in `assets/Play Store Assets-Master/`. Regenerate the website and graphics with `python3 tool/generate_playstore_package.py` from the repository root, passing the app-specific options documented by `--help`.
 
-Card taps reuse the original notification action while Android still exposes its pending intent. Old or dismissed notifications may no longer be openable by Android.
-
-Version 1.0.10 adds a saved dark theme, the donation page, and indexed SQLite notification storage while preserving existing JSON history during upgrade. It also keeps date-wide read actions on swipe with checkbox confirmation, separates selected and unselected app lists, and includes an in-app privacy disclosure and record deletion control.
-
-Launcher icon uses the Apache-2.0 Material Symbols notifications shape.
+The canonical app icon artwork is `assets/app_icon.svg`; the matching PNG used by the website and graphics is `assets/app_icon.png`.

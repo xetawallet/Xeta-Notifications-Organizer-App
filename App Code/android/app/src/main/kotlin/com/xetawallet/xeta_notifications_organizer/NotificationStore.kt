@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.BitmapDrawable
+import android.os.Bundle
 import android.os.Parcel
 import android.util.Base64
 import org.json.JSONArray
@@ -124,8 +125,33 @@ object NotificationStore {
             "iconPath", "key", "tag", "notificationId", "channelId", "category",
             "groupKey", "shortcutId", "creatorPackage", "link", "actionKind", "read", "starred",
         )
-        database(ctx).query(TABLE, columns, null, null, null, null, "time DESC, id DESC")
-            .use { cursor -> while (cursor.moveToNext()) out += toMap(cursor) }
+        val db = database(ctx)
+        val recoveredLinks = mutableMapOf<String, String>()
+        db.query(TABLE, columns, null, null, null, null, "time DESC, id DESC")
+            .use { cursor ->
+                while (cursor.moveToNext()) {
+                    val row = toMap(cursor).toMutableMap()
+                    if ((row["link"] as? String).isNullOrBlank()) {
+                        val recovered = linkFrom(
+                            row["title"] as? String ?: "",
+                            row["body"] as? String ?: "",
+                        )
+                        if (recovered.isNotBlank()) {
+                            row["link"] = recovered
+                            recoveredLinks[row["id"] as String] = recovered
+                        }
+                    }
+                    out += row
+                }
+            }
+        recoveredLinks.forEach { (id, link) ->
+            db.update(
+                TABLE,
+                ContentValues().apply { put("link", link) },
+                "id = ?",
+                arrayOf(id),
+            )
+        }
         return out
     }
 
@@ -229,26 +255,54 @@ object NotificationStore {
     fun openStored(ctx: Context, id: String?): Boolean {
         return try {
             val o = find(ctx, id) ?: return false
-            when (o.optString("actionKind")) {
-                "pendingIntent" -> {
-                    val action = pendingIntentFrom(o.optString("pendingIntent")) ?: return false
-                    action.send()
-                    true
+            pendingIntentFrom(o.optString("pendingIntent"))?.let {
+                try {
+                    it.send()
+                    return true
+                } catch (_: Exception) {
+                    // The originating app cancelled its token. Use the existing
+                    // URL fallback below in that case.
                 }
-                "link" -> {
-                    val link = o.optString("link")
-                    if (link.isBlank()) return false
-                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    true
-                }
-                else -> false
             }
+            val link = o.optString("link")
+            if (link.isNotBlank()) {
+                try {
+                    ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    return true
+                } catch (_: Exception) {
+                    // A captured URL may no longer have a handler.
+                }
+            }
+            // Parcelled PendingIntents can stop working after the source app
+            // updates or Android invalidates the token. Keep archived taps useful.
+            val launch = ctx.packageManager.getLaunchIntentForPackage(o.optString("packageName"))
+                ?: return false
+            ctx.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
         } catch (_: Exception) { false }
     }
 
+    fun textFromExtras(extras: Bundle): String {
+        val text = mutableListOf<String>()
+        fun collect(value: Any?, depth: Int) {
+            if (value == null || depth > 8) return
+            when (value) {
+                is CharSequence -> text += value.toString()
+                is Bundle -> value.keySet().forEach { key -> collect(value.get(key), depth + 1) }
+                is Iterable<*> -> value.forEach { collect(it, depth + 1) }
+                is Array<*> -> value.forEach { collect(it, depth + 1) }
+            }
+        }
+        extras.keySet().forEach { key -> collect(extras.get(key), 0) }
+        return text.joinToString("\n")
+    }
+
     fun linkFrom(vararg text: String): String {
-        val r = Regex("https?://[^\\s)]+")
-        return text.firstNotNullOfOrNull { r.find(it)?.value }.orEmpty()
+        val r = Regex("(?i)(?:https?://|www\\.)[^\\s<>\\\"']+")
+        return text.firstNotNullOfOrNull { value ->
+            r.find(value)?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}')
+                ?.let { if (it.startsWith("www.", true)) "https://$it" else it }
+        }.orEmpty()
     }
 
     fun encodePendingIntent(intent: PendingIntent?): String {

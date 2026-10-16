@@ -9,14 +9,15 @@ import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import org.json.JSONObject
+import java.util.LinkedHashMap
 import java.util.concurrent.Executors
 
 class NotificationCaptureService : NotificationListenerService() {
     override fun onListenerConnected() {
-        connectedService = this
         // Rebuild the click-action cache after an app/process restart before
         // re-saving active notifications.  The stored copy keeps their read
         // state when this is just a listener reconnect.
+        connectedService = this
         activeNotifications.orEmpty().forEach { capture(it) }
     }
 
@@ -25,7 +26,8 @@ class NotificationCaptureService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        // Keep the original action available after its shade row is removed.
+        // Keep the action cached after the shade row is dismissed. Archived
+        // notifications should still try their original action first.
     }
 
     override fun onListenerDisconnected() {
@@ -41,19 +43,22 @@ class NotificationCaptureService : NotificationListenerService() {
         // progress notifications often have no title/body, but still need to
         // be cleared when their app is not important.
         val silence = NotificationStore.shouldSilence(this, sbn.packageName)
-        val id = notificationId(sbn)
-        // Cache the Android-owned action before clearing a filtered notification.
-        n.contentIntent?.let { rememberAction(id, it) } ?: clearCachedAction(id)
         if (silence) cancelNotification(sbn.key)
 
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val body = (n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT) ?: n.extras.getCharSequence(Notification.EXTRA_TEXT))?.toString().orEmpty()
         if (title.isBlank() && body.isBlank()) return
+        val id = notificationId(sbn)
         // Keep the current action hot in memory and save its system token as
         // well. Key by the captured notification instance rather than Android's
         // reusable package/tag/id key so a late removal cannot evict a newer
         // notification's action.
-        val link = NotificationStore.linkFrom(title, body)
+        n.contentIntent?.let { rememberAction(id, it) } ?: removeAction(id)
+        val link = NotificationStore.linkFrom(
+            title,
+            body,
+            NotificationStore.textFromExtras(n.extras),
+        )
         val repetitive = sbn.packageName in NotificationStore.repetitiveApps(this)
         val record = JSONObject(mapOf(
             "id" to id,
@@ -97,11 +102,23 @@ class NotificationCaptureService : NotificationListenerService() {
 
     companion object {
         const val ACTION_CHANGED = "com.xetawallet.xeta_notifications_organizer.NOTIFICATIONS_CHANGED"
-        private val active = LinkedHashMap<String, PendingIntent>(16, 0.75f, true)
-        @Volatile private var connectedService: NotificationCaptureService? = null
         private const val MAX_CACHED_ACTIONS = 2000
+        private val active = LinkedHashMap<String, PendingIntent>(16, .75f, true)
+        @Volatile private var connectedService: NotificationCaptureService? = null
         private val storageExecutor = Executors.newSingleThreadExecutor { task ->
             Thread(task, "notification-archive-writer").apply { isDaemon = true }
+        }
+
+        fun refresh(ctx: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    NotificationListenerService.requestRebind(
+                        ComponentName(ctx, NotificationCaptureService::class.java)
+                    )
+                } catch (_: Exception) {
+                    // Notification access may not be enabled yet.
+                }
+            }
         }
 
         private fun rememberAction(id: String, pendingIntent: PendingIntent) {
@@ -118,45 +135,27 @@ class NotificationCaptureService : NotificationListenerService() {
 
         private fun cachedAction(id: String): PendingIntent? = synchronized(active) { active[id] }
 
-        private fun clearCachedAction(id: String) {
+        private fun removeAction(id: String) {
             synchronized(active) { active.remove(id) }
-        }
-
-        private fun removeCachedAction(id: String, expected: PendingIntent) {
-            synchronized(active) {
-                if (active[id] === expected) active.remove(id)
-            }
-        }
-
-        fun refresh(ctx: Context) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                try {
-                    NotificationListenerService.requestRebind(
-                        ComponentName(ctx, NotificationCaptureService::class.java)
-                    )
-                } catch (_: Exception) {
-                    // Notification access may not be enabled yet.
-                }
-            }
         }
 
         fun open(ctx: Context, id: String?): Boolean {
             if (id.isNullOrBlank()) return false
-            val liveAction = try {
+            val live = try {
                 connectedService?.activeNotifications
                     ?.firstOrNull { notificationId(it) == id }
                     ?.notification?.contentIntent
             } catch (_: Exception) {
                 null
             }
-            val action = liveAction ?: cachedAction(id)
+            val action = live ?: cachedAction(id)
             if (action != null) {
                 try {
                     action.send()
-                    synchronized(active) { active[id] = action }
+                    rememberAction(id, action)
                     return true
                 } catch (_: Exception) {
-                    removeCachedAction(id, action)
+                    synchronized(active) { if (active[id] === action) active.remove(id) }
                 }
             }
             return NotificationStore.openStored(ctx, id)

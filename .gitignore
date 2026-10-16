@@ -2,6 +2,8 @@
 *.apk
 *.aab
 **/build/
+!App Code/assets/Website/build/
+!App Code/assets/Website/build/**
 **/.dart_tool/
 **/.flutter-plugins-dependencies
 **/.pub/

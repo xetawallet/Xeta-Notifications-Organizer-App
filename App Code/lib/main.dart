@@ -1383,6 +1383,14 @@ class _SettingsPageState extends State<SettingsPage>
         ),
       ),
       ListTile(
+        leading: const Icon(Icons.code),
+        title: const Text('Open source'),
+        subtitle: const Text(
+          'Every line of app code is open source on GitHub.',
+        ),
+        onTap: () => Native.c.invokeMethod('openSource'),
+      ),
+      ListTile(
         leading: const Icon(Icons.delete_outline),
         title: const Text('Delete stored notifications'),
         subtitle: const Text(

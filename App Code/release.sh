@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APK_DIR="$ROOT_DIR/APK's"
+APK_DIR="$ROOT_DIR/../../Not Uploaded to Github/APK's (Test,Uploaded and To be Uploaded)"
 TEST_DIR="$APK_DIR/Test"
 PROD_DIR="$APK_DIR/To be Uploaded"
-UPLOADED_DIR="$APK_DIR/Uploaded"
+UPLOADED_DIR="$APK_DIR/Uploaded Already"
 ANDROID_DIR="$ROOT_DIR/android"
 KEY_PROPERTIES="$ANDROID_DIR/key.properties"
 UPLOAD_KEYSTORE="$ANDROID_DIR/upload-keystore.jks"
@@ -28,6 +28,7 @@ next_test_version() {
 }
 
 build_number_for_version() { local x y z; IFS='.' read -r x y z <<< "$1"; echo $((x * 1000000 + y * 1000 + z)); }
+build_number_for_release_version() { local x y z; IFS='.' read -r x y z <<< "$1"; echo $((x * 1000000 + y * 1000 + z + 1003)); }
 copy_required() { [[ -f "$1" ]] || { echo "Missing build artifact: $1" >&2; exit 1; }; cp "$1" "$2"; echo "Saved: $2"; }
 
 validate_key_properties() {
@@ -74,9 +75,9 @@ clean_visible_build_dir() {
   local tmp_dir; tmp_dir="$(mktemp -d)"
   cp -a "$TEST_DIR" "$tmp_dir/Test" 2>/dev/null || mkdir -p "$tmp_dir/Test"
   cp -a "$PROD_DIR" "$tmp_dir/To be Uploaded" 2>/dev/null || mkdir -p "$tmp_dir/To be Uploaded"
-  cp -a "$UPLOADED_DIR" "$tmp_dir/Uploaded" 2>/dev/null || mkdir -p "$tmp_dir/Uploaded"
+  cp -a "$UPLOADED_DIR" "$tmp_dir/Uploaded Already" 2>/dev/null || mkdir -p "$tmp_dir/Uploaded Already"
   rm -rf "$ROOT_DIR/build"; mkdir -p "$APK_DIR"
-  cp -a "$tmp_dir/Test" "$TEST_DIR"; cp -a "$tmp_dir/To be Uploaded" "$PROD_DIR"; cp -a "$tmp_dir/Uploaded" "$UPLOADED_DIR"
+  cp -a "$tmp_dir/Test" "$TEST_DIR"; cp -a "$tmp_dir/To be Uploaded" "$PROD_DIR"; cp -a "$tmp_dir/Uploaded Already" "$UPLOADED_DIR"
   touch "$APK_DIR/.gitkeep" "$TEST_DIR/.gitkeep" "$PROD_DIR/.gitkeep" "$UPLOADED_DIR/.gitkeep"
   rm -r "$tmp_dir"
 }
@@ -94,7 +95,7 @@ case "${build_type,,}" in
   release|r)
     read -r -p "Release version x.y.z: " version
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version." >&2; exit 1; }
-    build_number="$(build_number_for_version "$version")"; release_dir="$PROD_DIR/$version"
+    build_number="$(build_number_for_release_version "$version")"; release_dir="$PROD_DIR/$version"
     setup_release_signing
     flutter build apk --release --build-name "$version" --build-number "$build_number"
     mkdir -p "$release_dir"; copy_required "$ROOT_DIR/build/app/outputs/flutter-apk/app-release.apk" "$release_dir/release-v-${version}.apk"; verify_not_debug_signed "$release_dir/release-v-${version}.apk"

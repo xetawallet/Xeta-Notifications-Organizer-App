@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0 production
+
+- Production release built from the tested v1.1.3 codebase; Android version code 1001003.
+- Updated app icon assets across Android, web, website, and Play Store graphics.
+
+## 1.1.3
+
+- Keep original notification action taps and fall back to opening the captured link or source app when Android invalidates an archived action.
+- Capture links from all notification text extras, including common `www.` links, and clean trailing punctuation.
+- Add an in-app open-source link and publish the generated website and Play Store screenshots.
+
 ## 1.1.2
 
 - Return to Notifications when the app resumes.
