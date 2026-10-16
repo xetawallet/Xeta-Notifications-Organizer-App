@@ -1,0 +1,19 @@
+# Build and release artifacts
+*.apk
+*.aab
+**/build/
+!App Code/assets/Website/build/
+!App Code/assets/Website/build/**
+**/.dart_tool/
+**/.flutter-plugins-dependencies
+**/.pub/
+__pycache__/
+*.pyc
+
+# Local signing credentials and machine-specific configuration
+**/key.properties
+**/*.jks
+**/*.keystore
+**/local.properties
+**/android/app/build/
+**/.gradle/

@@ -1,0 +1,19 @@
+{
+  "donations": [
+    {
+      "currency": "ETH",
+      "network": "Ethereum Mainnet",
+      "address": "0xD648bdD81A5FF2b20C02E10b6ca0a7416Ab1351E"
+    },
+    {
+      "currency": "BTC",
+      "network": "Bitcoin Mainnet",
+      "address": "bc1qu8x5tqrtfe7y8cwlqx2khaf79yqq2qazmuuhvt"
+    },
+    {
+      "currency": "SOL",
+      "network": "Solana Mainnet",
+      "address": "5gR2nzxVG5QHGkF8oWgrR5Jr27xy9CRNebh5tLPANy2S"
+    }
+  ]
+}
